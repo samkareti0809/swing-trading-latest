@@ -2,9 +2,9 @@ name: NSE Daily Swing Screener
 
 on:
   schedule:
-    # Runs Monday to Friday at 10:15 UTC (3:45 PM IST)
-    - cron: '15 10 * * 1-5'
-  workflow_dispatch: # Allows you to run it manually anytime from GitHub UI
+    # Runs Monday to Friday at 9:30 UTC (3:00 PM IST)
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch: # Allows you to run it manually anytime from GitHub UI  workflow_dispatch: # Allows you to run it manually anytime from GitHub UI
 
 jobs:
   run-screener:
