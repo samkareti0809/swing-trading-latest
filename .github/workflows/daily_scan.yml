@@ -38,5 +38,13 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add screening_history.csv
+          
+          # Only add files if they exist to prevent git errors
+          if [ -f screening_history.csv ]; then
+            git add screening_history.csv
+          fi
+          if [ -f archived_history.csv ]; then
+            git add archived_history.csv
+          fi
+          
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update intraday trade statuses [skip ci]" && git push)
