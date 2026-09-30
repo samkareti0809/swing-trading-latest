@@ -1,13 +1,16 @@
-name: NSE Daily Swing Screener
+name: NSE Intraday Monitor & Daily Screener
 
 on:
   schedule:
-    # Runs Monday to Friday at 9:30 UTC (3:00 PM IST)
-    - cron: '30 9 * * 1-5'
-  workflow_dispatch: # Allows you to run it manually anytime from GitHub UI  workflow_dispatch: # Allows you to run it manually anytime from GitHub UI
+    # Runs every 30 minutes from 3:30 UTC to 9:30 UTC (9:00 AM to 3:00 PM IST), Mon-Fri
+    - cron: '*/30 3-9 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  run-screener:
+  run-monitor:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,9 +27,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pandas numpy yfinance
 
-      - name: Run Screener Script
+      - name: Run Intraday Database Monitor
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python daily_screener.py
+          python intraday_monitor.py
+
+      - name: Commit and Push Status Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add screening_history.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update intraday trade statuses [skip ci]" && git push)
