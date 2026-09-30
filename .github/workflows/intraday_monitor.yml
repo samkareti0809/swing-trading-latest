@@ -1,0 +1,42 @@
+name: NSE Intraday Trade Monitor
+
+on:
+  schedule:
+    # Runs every 30 minutes from 3:30 UTC to 9:30 UTC (9:00 AM to 3:00 PM IST), Mon-Fri
+    - cron: '*/30 3-9 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas numpy yfinance
+
+      - name: Run Intraday Monitor
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python intraday_monitor.py
+
+      - name: Commit Status Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f screening_history.csv ]; then git add screening_history.csv; fi
+          if [ -f archived_history.csv ]; then git add archived_history.csv; fi
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update intraday trade statuses [skip ci]" && git push)
