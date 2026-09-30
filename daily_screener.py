@@ -84,13 +84,13 @@ bench_bullish = bool(bench['Close'].iloc[-1] > bench['EMA50'].iloc[-1])
 bench_6m_ret = float(bench['Close'].iloc[-1] / bench['Close'].iloc[-120])
 
 if not bench_bullish:
-    warning_msg = f"⚠️ **MARKET CAUTION WARNING ({datetime.date.today()})**\n\nNifty 50 is **BELOW its 50 EMA**. (Cash protection mode bypassed by user request).\nContinuing stock hunt anyway..."
+    warning_msg = f"⚠️ **MARKET CAUTION WARNING ({datetime.date.today()})**\n\nNifty 50 is **BELOW its 50 EMA**. (Cash protection mode bypassed by user request from UC Hunter Pro ).\nContinuing stock hunt anyway..."
     print(f"\n{warning_msg.replace('**', '').replace('**', '')}\n")
     send_telegram(warning_msg)
 else:
     print("Market regime is BULLISH. Proceeding with scan...\n")
 
-# 3. Batch Screening & Quantitative Scoring (Optimized for Notebook memory management)
+# 3. Batch Screening & Quantitative Scoring
 candidates = []
 BATCH_SIZE = 25  # Safe batch size to prevent OOM/rate limits
 
@@ -103,7 +103,6 @@ for i in range(0, len(UNIVERSE), BATCH_SIZE):
         
         for ticker in batch:
             try:
-                # Robust DataFrame extraction for multi-ticker vs single-ticker responses
                 if len(batch) > 1:
                     if hasattr(data, "columns") and isinstance(data.columns, pd.MultiIndex):
                         if ticker in data.columns.levels[0]:
@@ -183,15 +182,28 @@ for i in range(0, len(UNIVERSE), BATCH_SIZE):
     except Exception as e:
         print(f"Skipped batch due to error: {e}")
     
-    # Sleep briefly to avoid rate limits and clear memory to prevent kernel crashes
     time.sleep(1)
     gc.collect()
 
-# 4. Format & Output Results (Console & Telegram)
+# 4. Save Database (CSV) & Format Telegram / Console Outputs
 print("\n" + "="*60)
 if candidates:
     df_ranked = pd.DataFrame(candidates).sort_values(by="Score", ascending=False).head(TOP_N_PICKS)
     
+    # Save/Append to Database (screening_history.csv)
+    df_ranked['Date'] = str(datetime.date.today())
+    cols = ['Date', 'Ticker', 'Score', 'LTP', 'Stop', 'Risk_Pct', 'Shares', 'Capital_Req', 'Target_1', 'T1_Gain_Pct', 'Vol_Mult']
+    df_ranked_db = df_ranked[[c for c in cols if c in df_ranked.columns]]
+    
+    history_file = 'screening_history.csv'
+    if os.path.exists(history_file):
+        df_history = pd.read_csv(history_file)
+        df_combined = pd.concat([df_history, df_ranked_db]).drop_duplicates(subset=['Date', 'Ticker'], keep='last')
+    else:
+        df_combined = df_ranked_db
+    df_combined.to_csv(history_file, index=False)
+    print("Database Updated: Successfully recorded today's setups into screening_history.csv")
+
     # Build Console Output
     console_lines = [f"🚀 TOP {len(df_ranked)} SWING SETUPS ({datetime.date.today()})\n"]
     for idx, row in df_ranked.reset_index(drop=True).iterrows():
@@ -205,7 +217,7 @@ if candidates:
     console_lines.append("Action: Review & execute delivery orders between 3:20 PM and 3:28 PM IST.")
     print("\n".join(console_lines))
     
-    # Build HTML Telegram Output
+    # Build HTML Telegram Output (Includes exact Entry, Stop Loss, and Targets)
     tg_lines = [f"🚀 **TOP {len(df_ranked)} SWING SETUPS ({datetime.date.today()})**\n"]
     for idx, row in df_ranked.reset_index(drop=True).iterrows():
         tg_lines.append(
