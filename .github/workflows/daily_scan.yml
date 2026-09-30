@@ -1,18 +1,17 @@
-name: NSE Intraday Monitor & Daily Screener
+name: NSE Daily Swing Screener
 
 on:
   schedule:
-    # Runs every 30 minutes from 3:30 UTC to 9:30 UTC (9:00 AM to 3:00 PM IST), Mon-Fri
-    - cron: '*/30 3-9 * * 1-5'
+    # Runs Monday to Friday at 9:30 UTC (3:00 PM IST) exactly once a day
+    - cron: '30 9 * * 1-5'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  run-monitor:
+  screener:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -27,24 +26,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests pandas numpy yfinance
 
-      - name: Run Intraday Database Monitor
+      - name: Run Daily Screener & Database Archiver
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python intraday_monitor.py
+          python daily_screener.py
 
-      - name: Commit and Push Status Updates
+      - name: Commit New Daily Setups & Archives
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Only add files if they exist to prevent git errors
-          if [ -f screening_history.csv ]; then
-            git add screening_history.csv
-          fi
-          if [ -f archived_history.csv ]; then
-            git add archived_history.csv
-          fi
-          
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update intraday trade statuses [skip ci]" && git push)
+          if [ -f screening_history.csv ]; then git add screening_history.csv; fi
+          if [ -f archived_history.csv ]; then git add archived_history.csv; fi
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update daily screening results [skip ci]" && git push)
